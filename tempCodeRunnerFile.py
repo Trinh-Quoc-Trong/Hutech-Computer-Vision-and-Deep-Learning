@@ -1,1 +1,0 @@
-, g, b = cv2.split(img_rgb)  
