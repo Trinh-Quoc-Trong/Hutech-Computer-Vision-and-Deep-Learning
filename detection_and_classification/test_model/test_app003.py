@@ -1,37 +1,44 @@
 import cv2  
 import numpy as np  
-from ultralytics import YOLO  
+import mediapipe as mp  
 import matplotlib.pyplot as plt  
 from collections import Counter  
 
 class VehicleDetector:  
-    def __init__(self, model_path='yolov8n.pt'):  
+    def __init__(self):  
         """  
-        Khởi tạo detector với mô hình YOLO và cấu hình chi tiết  
+        Khởi tạo detector sử dụng MediaPipe Object Detection  
         """  
-        self.model = YOLO(model_path)  
+        # Cấu hình MediaPipe Object Detection  
+        self.mp_objectron = mp.solutions.objectron  
+        self.mp_drawing = mp.solutions.drawing_utils  
         
-        # Danh mục xe chi tiết với nhóm phân loại  
+        # Khởi tạo detector với cấu hình chi tiết  
+        self.objectron = self.mp_objectron.Objectron(  
+            static_image_mode=True,  
+            max_num_objects=10,  
+            min_detection_confidence=0.5,  
+            model_name='Bicycle'  # Có thể thay đổi: 'Bicycle', 'Cup', 'Chair', 'Camera', 'Shoe'  
+        )  
+        
+        # Danh mục xe chi tiết  
         self.vehicle_categories = {  
-            'personal': ['car', 'sedan', 'suv', 'hatchback', 'coupe'],  
-            'commercial': ['truck', 'van', 'pickup', 'bus'],  
-            'two_wheel': ['motorcycle', 'bicycle'],  
-            'heavy': ['lorry', 'trailer', 'cargo_truck']  
+            'two_wheel': ['bicycle', 'motorcycle'],  
+            'personal': ['car', 'sedan', 'suv'],  
+            'commercial': ['truck', 'van', 'bus'],  
+            'heavy': ['lorry', 'trailer']  
         }  
     
-    def detect_and_count_vehicles(self, image_path, confidence_threshold=0.5):  
+    def detect_and_count_vehicles(self, image_path):  
         """  
-        Phát hiện, nhận diện và đếm xe với phân loại chi tiết  
-        
-        Returns:  
-            dict: Thông tin chi tiết về xe  
+        Phát hiện, nhận diện và đếm xe  
         """  
         # Đọc ảnh  
         image = cv2.imread(image_path)  
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
         
-        # Dự đoán  
-        results = self.model(image_path)[0]  
+        # Nhận diện đối tượng  
+        results = self.objectron.process(image_rgb)  
         
         # Lưu trữ kết quả  
         detected_vehicles = []  
@@ -46,31 +53,35 @@ class VehicleDetector:
             'detailed_count': {}  
         }  
         
-        for box in results.boxes:  
-            # Lấy thông tin  
-            cls = int(box.cls[0])  
-            conf = float(box.conf[0])  
-            vehicle_class = self.model.names[cls]  
-            
-            # Kiểm tra và phân loại  
-            for category, classes in self.vehicle_categories.items():  
-                if vehicle_class.lower() in classes and conf >= confidence_threshold:  
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])  
-                    
-                    detected_vehicles.append({  
-                        'class': vehicle_class,  
-                        'category': category,  
-                        'confidence': conf,  
-                        'bbox': [x1, y1, x2, y2]  
-                    })  
-                    
-                    # Cập nhật số lượng  
-                    vehicle_counts['total'] += 1  
-                    vehicle_counts['by_category'][category] += 1  
-                    vehicle_counts['detailed_count'][vehicle_class] = \
-                        vehicle_counts['detailed_count'].get(vehicle_class, 0) + 1  
-                    
-                    break  
+        # Xử lý kết quả  
+        if results.detected_objects:  
+            for detected_object in results.detected_objects:  
+                # Thông tin vị trí  
+                bbox = detected_object.location_data.relative_bounding_box  
+                
+                # Chuyển đổi tọa độ  
+                h, w, _ = image.shape  
+                x = int(bbox.xmin * w)  
+                y = int(bbox.ymin * h)  
+                width = int(bbox.width * w)  
+                height = int(bbox.height * h)  
+                
+                # Phân loại và đếm  
+                vehicle_class = 'bicycle'  # Mặc định với model hiện tại  
+                
+                detected_vehicles.append({  
+                    'class': vehicle_class,  
+                    'bbox': [x, y, x+width, y+height]  
+                })  
+                
+                vehicle_counts['total'] += 1  
+                for category, classes in self.vehicle_categories.items():  
+                    if vehicle_class in classes:  
+                        vehicle_counts['by_category'][category] += 1  
+                        break  
+                
+                vehicle_counts['detailed_count'][vehicle_class] = \
+                    vehicle_counts['detailed_count'].get(vehicle_class, 0) + 1  
         
         return {  
             'image': image_rgb,  
@@ -83,6 +94,8 @@ class VehicleDetector:
         Hiển thị kết quả nhận diện kèm thống kê  
         """  
         plt.figure(figsize=(16, 10))  
+        
+        # Ảnh nhận diện  
         plt.subplot(1, 2, 1)  
         plt.imshow(detection_result['image'])  
         
@@ -99,7 +112,7 @@ class VehicleDetector:
             ))  
             plt.text(  
                 bbox[0], bbox[1] - 10,   
-                f"{vehicle['class']} ({vehicle['confidence']:.2f})",   
+                vehicle['class'],   
                 color='red'  
             )  
         
@@ -143,4 +156,4 @@ class VehicleDetector:
 detector = VehicleDetector()  
 detection = detector.detect_and_count_vehicles(r'data_test\test_image004.jpg')  
 detector.visualize_detection_with_count(detection)  
-print(detector.generate_traffic_report(detection)) 
+print(detector.generate_traffic_report(detection))  

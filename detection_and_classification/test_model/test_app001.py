@@ -5,12 +5,7 @@ import matplotlib.pyplot as plt
 
 class VehicleDetector:  
     def __init__(self, model_path='yolov8n.pt'):  
-        """  
-        Khởi tạo detector với mô hình YOLO  
-        
-        Args:  
-            model_path (str): Đường dẫn đến mô hình pre-trained  
-        """  
+    
         self.model = YOLO(model_path)  
         
         # Danh sách các lớp xe được quan tâm  
@@ -20,17 +15,7 @@ class VehicleDetector:
         ]  
     
     def detect_vehicles(self, image_path, confidence_threshold=0.5):  
-        """  
-        Phát hiện và nhận diện xe từ hình ảnh  
-        
-        Args:  
-            image_path (str): Đường dẫn ảnh  
-            confidence_threshold (float): Ngưỡng tin cậy  
-        
-        Returns:  
-            dict: Thông tin các xe được phát hiện  
-        """  
-        # Đọc ảnh  
+      
         image = cv2.imread(image_path)  
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
         
@@ -64,12 +49,7 @@ class VehicleDetector:
         }  
     
     def visualize_detection(self, detection_result):  
-        """  
-        Hiển thị kết quả nhận diện  
-        
-        Args:  
-            detection_result (dict): Kết quả từ detect_vehicles  
-        """  
+       
         plt.figure(figsize=(12, 8))  
         plt.imshow(detection_result['image'])  
         
